@@ -15,7 +15,8 @@ from database import *
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="EBU R128 Loudness Normalizer")
+    parser = argparse.ArgumentParser(description="EBU R128 Loudness Normalizer",
+                                     formatter_class=argparse.RawTextHelpFormatter)
 
     parser.add_argument("-v", action="store_true", dest="verbose",
                         help="verbose")
@@ -34,10 +35,13 @@ def parse_args():
                         help="encode only ALAC format")
 
     parser.add_argument("--mp3", action="store_true",
-                        help="encode MP3 format (disables AAC or ALAC formats)")
+                        help="encode MP3 format\n(disables AAC or ALAC formats that can be enabled manually)")
 
     parser.add_argument("--quality", default=9, type=int, metavar="q",
-                        help="set quality of MP3 or AAC encoding (from 0 to 9 where 0 = low, 9 = max [default])")
+                        help="set quality of MP3 or AAC encoding\n(from 0 to 9 where 0 = lowest, 9 = highest [default])")
+
+    parser.add_argument("--volume", default=-16, type=int, metavar="vol", choices=[-23, -19, -16],
+                        help="set value to which to normalize\n(-23 is by standard\n -19 or -16 [default] are slightly louder")
 
     parser.add_argument("--no-db", action="store_true",
                         help="don't create a volumes.db file")
@@ -65,6 +69,7 @@ def init_config(args):
     conf.alac = args.alac
     conf.mp3 = args.mp3
     conf.quality = args.quality
+    conf.volume = args.volume
 
     # set some defaults:
     if conf.itunes:
@@ -127,8 +132,8 @@ def init_qaac():
 
 
 def calc_volume(lufs):
-    # calculation to -16dB LUFS:
-    return round(-16 - lufs, 1)
+    log.d("lufs: {}, calculating to: {}".format(lufs, conf.volume))
+    return round(conf.volume - lufs, 1)
 
 
 def init_db(conversion_list):

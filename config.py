@@ -33,6 +33,7 @@ class Config(metaclass=Singleton):
     alac = False
     mp3 = False
     quality = 0
+    volume = 0
     dry_run = False
     no_db = False
     verbose = False
