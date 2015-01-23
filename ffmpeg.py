@@ -329,7 +329,7 @@ class FFmpeg:
         # prepare args to give to ffmpeg:
         args = ["-hide_banner"]
         args.extend(["-i", str(input_file)])
-        args.extend(["-vn", "-qscale:a", "0"])
+        args.extend(["-vn", "-c:a", "mp3", "-qscale:a", "0"])
         args.extend(["-af", "volume={}dB".format(volume)])
         args.extend(["-y", str(output_file)])
 
@@ -369,3 +369,14 @@ class FFmpeg:
             bar.finish()
 
             self._full_stderr = ff.full_stderr
+
+    def convert_to_ac3(self, input_file, output_file, volume=0):
+        input_file = pathlib.Path(input_file).absolute()
+        if not input_file.is_file():
+            raise FileNotFoundError("{} not found or not a file.".format(input_file))
+
+        args = ["-hide_banner"]
+        args.extend(["-i", str(input_file)])
+        args.extend(["-vn", "-c:a", "ac3", "-b:a", "640"])
+        args.extend(["-af", "volume={}dB".format(volume)])
+        args.extend(["-y", str(output_file)])

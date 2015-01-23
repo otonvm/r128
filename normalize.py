@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # library imports:
+import sys
 import argparse
 import pathlib
 
@@ -35,21 +36,30 @@ def parse_args():
                         help="encode only ALAC format")
 
     parser.add_argument("--mp3", action="store_true",
-                        help="encode MP3 format\n(disables AAC or ALAC formats that can be enabled manually)")
+                        help="{}\n{}".format("encode MP3 format",
+                                             " - disables AAC or ALAC formats that can be enabled manually"))
 
     parser.add_argument("--quality", default=9, type=int, metavar="q",
-                        help="set quality of MP3 or AAC encoding\n(from 0 to 9 where 0 = lowest, 9 = highest [default])")
+                        help="{}\n{}\n{}".format("set quality of MP3 or AAC encoding",
+                                                 " - from 0 to 9 where 0 = lowest, 9 = highest [default])",
+                                                 "(not implemented)"))
 
     parser.add_argument("--volume", default=-16, type=int, metavar="vol", choices=[-23, -19, -16],
-                        help="{}\n{}".format("set value to which to normalize",
-                                             "(-23 is by standard\n -19 or -16 [default] are slightly louder"))
+                        help="{}\n{}\n{}".format("set value to which to normalize",
+                                                 " - -23 is by standard",
+                                                 " - -19 or -16 [default] are slightly louder"))
 
     parser.add_argument("--no-db", action="store_true",
                         help="don't create a volumes.db file")
 
     parser.add_argument("input", metavar="<input file or folder>")
 
-    return parser.parse_args()
+    try:
+        return parser.parse_args()
+    except SystemExit:
+        if ('-h' or '--help') not in sys.argv:
+            input("Press any key to quit...")
+        raise
 
 
 def init_config(args):
