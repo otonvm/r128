@@ -161,6 +161,8 @@ class Qaac:
             self._test_bin()
 
     def _locate_bin(self):
+        log.d("trying to find qaac binary")
+
         # script folder should be among the first to be searched:
         search_paths = sys.path
 
@@ -173,7 +175,8 @@ class Qaac:
 
             try:
                 # create a list of all exe files in the folder beeing searched:
-                executables = [str(exe) for exe in path.glob("**/*.exe") if exe.is_file() and os.access(str(exe), os.X_OK)]
+                executables = [str(exe) for exe in path.glob("**/*.exe")
+                               if exe.is_file() and os.access(str(exe), os.X_OK)]
             except (KeyError, PermissionError):
                 continue
 

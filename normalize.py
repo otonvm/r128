@@ -6,7 +6,7 @@ import argparse
 import pathlib
 
 # local imports:
-import logger
+from logger import *
 from config import *
 from utils import *
 from ffmpeg import *
@@ -41,7 +41,8 @@ def parse_args():
                         help="set quality of MP3 or AAC encoding\n(from 0 to 9 where 0 = lowest, 9 = highest [default])")
 
     parser.add_argument("--volume", default=-16, type=int, metavar="vol", choices=[-23, -19, -16],
-                        help="set value to which to normalize\n(-23 is by standard\n -19 or -16 [default] are slightly louder")
+                        help="{}\n{}".format("set value to which to normalize",
+                                             "(-23 is by standard\n -19 or -16 [default] are slightly louder"))
 
     parser.add_argument("--no-db", action="store_true",
                         help="don't create a volumes.db file")
@@ -288,10 +289,12 @@ def main(args):
 if __name__ == "__main__":
     arguments = parse_args()
 
-    # initialize the config class to store and share configuration:
+    # initialize the config class
+    # to store and share configuration
+    # has to be in global scope:
     conf = Config()
 
-    log = logger.Logger(__name__)
+    log = Logger(__name__)
     if arguments.debug:
         conf.log_level = "DEBUG"
     elif arguments.verbose:

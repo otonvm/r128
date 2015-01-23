@@ -179,6 +179,7 @@ class FFmpeg:
 
         # script folder should be among the first to be searched:
         search_paths = sys.path
+
         # the add the system PATH:
         search_paths.extend(os.environ["PATH"].split(os.pathsep))
 
@@ -186,8 +187,12 @@ class FFmpeg:
             path = pathlib.Path(path)
             log.d("searching inside {}".format(path))
 
-            # create a list of all exe files in the folder beeing searched:
-            executables = [str(exe) for exe in path.glob("*.exe") if exe.is_file() and os.access(str(exe), os.X_OK)]
+            try:
+                # create a list of all exe files in the folder beeing searched:
+                executables = [str(exe) for exe in path.glob("**/*.exe")
+                               if exe.is_file() and os.access(str(exe), os.X_OK)]
+            except (KeyError, PermissionError):
+                continue
 
             for exe in executables:
                 if "ffmpeg" in exe:
