@@ -161,4 +161,5 @@ target/
 *.zip
 ffmpeg/
 qaac/
+tools/
 build/

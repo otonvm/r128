@@ -218,6 +218,10 @@ class FFmpeg:
             raise FFmpegTestFailedError("FFmpeg did not exit correctly.")
 
     @property
+    def path(self):
+        return self.ffmpeg_bin
+
+    @property
     def requrements(self):
         return self._requirements
 

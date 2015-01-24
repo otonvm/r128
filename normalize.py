@@ -7,8 +7,9 @@ import argparse
 import pathlib
 
 # local imports:
-from logger import *
-from config import *
+import logger
+import config
+import readchar
 from utils import *
 from ffmpeg import *
 from qaac import *
@@ -58,7 +59,8 @@ def parse_args():
         return parser.parse_args()
     except SystemExit:
         if ('-h' or '--help') not in sys.argv:
-            input("Press any key to quit...")
+            print("Press any key to quit...", end='', file=sys.stderr, flush=True)
+            readchar.readkey()
         raise
 
 
@@ -105,41 +107,34 @@ def init_config(args):
 def init_ffmpeg():
     # test ffmpeg:
     try:
-        ffmpeg = FFmpeg(debug=conf.debug)
+        conf.ffmpeg = FFmpeg(debug=conf.debug)
 
         # check if this ffmpeg has the required libraries compiled in:
-        ffmpeg.requrements = "libmp3lame"
-        ffmpeg.requrements = "libsoxr"
+        conf.ffmpeg.requrements = "libmp3lame"
+        conf.ffmpeg.requrements = "libsoxr"
 
-        ffmpeg.check_requirements()
+        conf.ffmpeg.check_requirements()
 
     except FFmpegNotFoundError:
-        print_stderr("FFmpeg binary could not be found.")
-        print_and_exit("Make sure it's in your path.", 1)
+        log_and_exit("FFmpeg binary could not be found.\nMake sure it's in your path.", 1)
 
     except (FFmpegTestFailedError, FFmpegProcessError):
-        print_and_exit("Error while trying to run FFmpeg.", 1)
+        log_and_exit("Error while trying to run FFmpeg.", 1)
 
     except FFmpegMissingLib as err:
-        print_and_exit(err, 1)
-
-    else:
-        conf.ffmpeg = ffmpeg
+        log_and_exit("FFmpeg at {} doesn't have the required library: {}".format(conf.ffmpeg.path, err), 1)
 
 
 def init_qaac():
+    # qaac is not required so it can fail detection:
     try:
-        qaac = Qaac(debug=conf.debug)
+        conf.qaac = Qaac(debug=conf.debug)
 
     except QaacNotFoundError:
-        print_stderr("Qaac binary could not be found.")
-        print_and_exit("Make sure it's in your path.", 1)
+        log.w("Qaac binary could not be found. Make sure it's in your path.")
 
     except (QaacTestFailedError, QaacProcessError):
-        print_and_exit("Error while trying to run Qaac.", 1)
-
-    else:
-        conf.qaac = qaac
+        log.w("Error while trying to run Qaac.")
 
 
 def calc_volume(lufs):
@@ -168,10 +163,20 @@ def main(args):
     init_ffmpeg()
     init_qaac()
 
+    # disable aac and alac encoding if qaac is not present:
+    if not conf.qaac:
+        conf.aac = False
+        conf.alac = False
+
+    if not conf.aac and not conf.alac and not conf.mp3:
+        log_and_exit("No available encoder has been selected.")
+
     # create a list of all input flac files:
     if conf.input_is_file:
         if not conf.input.name.endswith(".flac"):
-            print_and_exit("File {} is not a FLAC file!".format(conf.input.name), 1)
+            log_and_exit("File {} is not a FLAC file!".format(conf.input.name), 1)
+
+        log.i("Processing one file...")
 
         conf.input_list.append(conf.input)
 
@@ -179,7 +184,9 @@ def main(args):
         conf.input_list = [file for file in conf.input.glob("*.flac")]
 
         if len(conf.input_list) == 0:
-            print_and_exit("No FLAC files found in {}!".format(conf.input.name), 1)
+            log_and_exit("No FLAC files found in {}!".format(conf.input.name), 1)
+
+        log.i("Processing {} files...".format(len(conf.input_list)))
 
     # loop over all input files and create (input, output) combinations while filtering out existing files:
     for file in conf.input_list:
@@ -188,38 +195,38 @@ def main(args):
             if not aac_output_filename.exists():
                 conf.aac_conversion_list.append((file, aac_output_filename))
             else:
-                print_stderr("{} alredy exists. Skipping...".format(aac_output_filename))
+                log.i("{} alredy exists. Skipping...".format(aac_output_filename))
 
             alac_output_filename = file.parent / "{}_alac.m4a".format(file.stem)
             if not alac_output_filename.exists():
                 conf.alac_conversion_list.append((file, alac_output_filename))
             else:
-                print_stderr("{} alredy exists. Skipping...".format(alac_output_filename))
+                log.i("{} alredy exists. Skipping...".format(alac_output_filename))
 
             mp3_output_filename = file.parent / "{}_mp3.m4a".format(file.stem)
             if not mp3_output_filename.exists():
                 conf.mp3_conversion_list.append((file, mp3_output_filename))
             else:
-                print_stderr("{} alredy exists. Skipping...".format(mp3_output_filename))
+                log.i("{} alredy exists. Skipping...".format(mp3_output_filename))
 
         else:
             aac_output_filename = conf.input / "aac" / "{}.m4a".format(file.stem)
             if not aac_output_filename.exists():
                 conf.aac_conversion_list.append((file, aac_output_filename))
             else:
-                print_stderr("{} alredy exists. Skipping...".format(aac_output_filename))
+                log.i("{} alredy exists. Skipping...".format(aac_output_filename))
 
             alac_output_filename = conf.input / "alac" / "{}.m4a".format(file.stem)
             if not alac_output_filename.exists():
                 conf.alac_conversion_list.append((file, alac_output_filename))
             else:
-                print_stderr("{} alredy exists. Skipping...".format(alac_output_filename))
+                log.i("{} alredy exists. Skipping...".format(alac_output_filename))
 
             mp3_output_filename = conf.input / "mp3" / "{}.mp3".format(file.stem)
             if not mp3_output_filename.exists():
                 conf.mp3_conversion_list.append((file, mp3_output_filename))
             else:
-                print_stderr("{} alredy exists. Skipping...".format(mp3_output_filename))
+                log.i("{} alredy exists. Skipping...".format(mp3_output_filename))
 
     # setup database path:
     if conf.input_is_file:
@@ -245,10 +252,10 @@ def main(args):
                     try:
                         conf.qaac.convert_to_aac(input_file, output_file, volume=volume)
                     except QaacProcessError as err:
-                        print_and_exit("Qaac error: {}".format(err), 1)
+                        log_and_exit("Qaac error: {}".format(err), 1)
                     log.d("full stderr: {}".format(conf.qaac.full_stderr))
                 else:
-                    print_stderr("Would convert {} to {}.".format(input_file, output_file))
+                    log.i("Would convert {} to {}.".format(input_file, output_file))
         else:
             print_stderr("Nothing to do!")
 
@@ -268,10 +275,10 @@ def main(args):
                     try:
                         conf.qaac.convert_to_alac(input_file, output_file, volume=volume)
                     except QaacProcessError as err:
-                        print_and_exit("Qaac error: {}".format(err), 1)
+                        log_and_exit("Qaac error: {}".format(err), 1)
                     log.d("full stderr: {}".format(conf.qaac.full_stderr))
                 else:
-                    print_stderr("Would convert {} to {}.".format(input_file, output_file))
+                    log.i("Would convert {} to {}.".format(input_file, output_file))
         else:
             print_stderr("Nothing to do!")
 
@@ -291,7 +298,7 @@ def main(args):
                     conf.ffmpeg.convert_to_mp3(input_file, output_file, volume=volume)
                     log.d("full stderr: {}".format(conf.ffmpeg.full_stderr))
                 else:
-                    print_stderr("Would convert {} to {}.".format(input_file, output_file))
+                    log.i("Would convert {} to {}.".format(input_file, output_file))
         else:
             print_stderr("Nothing to do!")
 
@@ -302,9 +309,9 @@ if __name__ == "__main__":
     # initialize the config class
     # to store and share configuration
     # has to be in global scope:
-    conf = Config()
+    conf = config.Config()
 
-    log = Logger(__name__)
+    log = logger.Logger(__name__)
     if arguments.debug:
         conf.log_level = "DEBUG"
     elif arguments.verbose:
