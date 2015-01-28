@@ -23,6 +23,7 @@ __copyright__ = "2015 Oton Mahnič"
 __version__ = "1.5"
 
 # library imports:
+import os
 import sys
 import argparse
 import pathlib
@@ -319,7 +320,19 @@ def main(args):
                     try:
                         conf.qaac.convert_to_aac(input_file, output_file, volume=volume)
                     except QaacProcessError as err:
+                        try:
+                            os.remove(str(output_file))
+                        except PermissionError:
+                            pass
+
                         log_and_exit("Qaac error: {}".format(err), 1)
+                    except KeyboardInterrupt:
+                        try:
+                            os.remove(str(output_file))
+                        except PermissionError:
+                            pass
+                        raise
+
                     log.d("full qaac stderr: {}".format(conf.qaac.qaac_stderr))
                 else:
                     log.i("Would convert {} to {}.".format(input_file, output_file))
@@ -339,11 +352,22 @@ def main(args):
             for input_file, output_file in conf.alac_conversion_list:
                 if not conf.dry_run:
                     volume = conf.db.get_entry(conf.db.md5sum(input_file))
-
                     try:
                         conf.qaac.convert_to_alac(input_file, output_file, volume=volume)
                     except QaacProcessError as err:
+                        try:
+                            os.remove(str(output_file))
+                        except PermissionError:
+                            pass
+
                         log_and_exit("Qaac error: {}".format(err), 1)
+                    except KeyboardInterrupt:
+                        try:
+                            os.remove(str(output_file))
+                        except PermissionError:
+                            pass
+                        raise
+
                     log.d("full qaac stderr: {}".format(conf.qaac.qaac_stderr))
                 else:
                     log.i("Would convert {} to {}.".format(input_file, output_file))
@@ -363,7 +387,15 @@ def main(args):
             for input_file, output_file in conf.mp3_conversion_list:
                 if not conf.dry_run:
                     volume = conf.db.get_entry(conf.db.md5sum(input_file))
-                    conf.lame.convert_to_mp3(input_file, output_file, volume=volume)
+                    try:
+                        conf.lame.convert_to_mp3(input_file, output_file, volume=volume)
+                    except KeyboardInterrupt:
+                        try:
+                            os.remove(str(output_file))
+                        except PermissionError:
+                            pass
+                        raise
+
                     log.d("full lame stderr: {}".format(conf.lame.lame_stderr))
                 else:
                     log.i("Would convert {} to {}.".format(input_file, output_file))
@@ -384,7 +416,15 @@ def main(args):
             for input_file, output_file in conf.ac3_conversion_list:
                 if not conf.dry_run:
                     volume = conf.db.get_entry(conf.db.md5sum(input_file))
-                    conf.ffmpeg.convert_to_ac3(input_file, output_file, volume=volume)
+                    try:
+                        conf.ffmpeg.convert_to_ac3(input_file, output_file, volume=volume)
+                    except KeyboardInterrupt:
+                        try:
+                            os.remove(str(output_file))
+                        except PermissionError:
+                            pass
+                        raise
+
                     log.d("full stderr: {}".format(conf.ffmpeg.full_stderr))
                 else:
                     log.i("Would convert {} to {}.".format(input_file, output_file))

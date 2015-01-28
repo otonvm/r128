@@ -26,8 +26,7 @@ if conf.log_level:
 else:
     log.level = "ERROR"
 
-from progressbar import ProgressBar, Percentage, Bar
-from utils import locate_bin
+from utils import locate_bin, HashProgressBar
 
 class LAMEException(Exception):
     pass
@@ -232,6 +231,8 @@ class LAME:
         self._ff_stderr = []
         self._qaac_stderr = None
 
+        self._progressbar = HashProgressBar()
+
         try:
             if self._ff_path:
                 self._ff_path = FFmpeg(self._ff_path).path
@@ -241,7 +242,7 @@ class LAME:
             raise LAMETestFailedError(exc)
 
         if not self._lame_path:
-            locate_bin("lame", LAMENotFoundError)
+            self._lame_path = locate_bin("lame", LAMENotFoundError)
             self._test_bin()
 
         else:
@@ -291,24 +292,6 @@ class LAME:
         if file.stat().st_size == 0:
             raise LAMEProcessError("{} is 0-byte file".format(file))
 
-    def _signal_progress(self, value=0, finish=False):
-        # create a progress bar or send Qt signals
-
-        # shutdown the progressbar:
-        if finish:
-            try:
-                self._bar.finish()
-                self._bar = None
-            except AttributeError:
-                pass
-        # a progress bar does not exist:
-        elif not self._bar:
-            self._bar = ProgressBar(widgets=[Bar('#'), ' ', Percentage()], maxval=value)
-            self._bar.start()
-        # a progress bar exists so update it:
-        else:
-            self._bar.update(value)
-
     @staticmethod
     def _start_lame_process(queue, quit_event, ff_path, lame_path, ff_args=[], lame_args=[], store_stderr=False):
         # to be started as a thread!
@@ -354,12 +337,12 @@ class LAME:
                     self._lame_stderr = data[2]
             else:
                 # react to exception:
-                self._signal_progress(finish=True)
+                self._progressbar.finish()
                 log.d("raising exception {} from thread".format(data[0]))
                 raise data[0](data[1])
 
     def _quit_thread(self, exception=None):
-        self._signal_progress(finish=True)
+        self._progressbar.finish()
 
         self._quit_event.set()
 
@@ -417,12 +400,12 @@ class LAME:
 
         self._get_duration()
 
-        self._signal_progress(self._duration)
+        self._progressbar.create(self._duration)
 
         try:
             while True:
                 if self._thread_dead():
-                    self._signal_progress(finish=True)
+                    self._progressbar.finish()
                     break
 
                 try:
@@ -451,9 +434,9 @@ class LAME:
                         time = hh * 60 * 60 + mm * 60 + ss
 
                         if time < self._duration:
-                            self._signal_progress(time)
+                            self._progressbar.update(time)
                         else:
-                            self._signal_progress(self._duration)
+                            self._progressbar.update(self._duration)
 
                     if "Error" in data:
                         self._quit_thread(LAMEProcessError(data))

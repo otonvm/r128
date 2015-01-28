@@ -18,6 +18,7 @@ if conf.log_level:
 else:
     log.level = "DEBUG"
 
+from progressbar import ProgressBar, Percentage, Bar
 
 def print_stderr(msg):
     print(colorama.Fore.GREEN + str(msg) + colorama.Style.RESET_ALL, file=stream, flush=True)
@@ -78,7 +79,33 @@ def locate_bin(bin_name, exception):
 
         # exe has been found, exit needless loops:
         if bin_path:
-            break
+            return bin_path
     else:
         raise exception("Could not locate {} binary anywhere in PATH.".format(bin_name))
 
+
+class HashProgressBar:
+    def __init__(self):
+        self._bar = None
+        self._maxval = 0
+
+    def create(self, value):
+        self._maxval = value
+        self._bar = ProgressBar(widgets=[Bar('#'), ' ', Percentage()], maxval=self._maxval)
+        self._bar.start()
+
+    def update(self, value):
+        try:
+            if value <= self._maxval:
+                self._bar.update(value)
+            else:
+                self._bar.update(self._maxval)
+        except AttributeError:
+            pass
+
+    def finish(self):
+        try:
+            self._bar.finish()
+            self._bar = None
+        except AttributeError:
+            pass

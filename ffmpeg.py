@@ -23,9 +23,7 @@ if conf.log_level:
 else:
     log.level = "DEBUG"
 
-from utils import print_stderr, locate_bin
-
-from progressbar import ProgressBar, Percentage, Bar
+from utils import locate_bin, HashProgressBar
 
 
 class FFmpegException(Exception):
@@ -173,8 +171,10 @@ class FFmpeg:
         self._requirements = []
         self._full_stderr = []
 
+        self._progressbar = HashProgressBar()
+
         if not self.ffmpeg_bin:
-            locate_bin("ffmpeg", FFmpegNotFoundError)
+            self.ffmpeg_bin = locate_bin("ffmpeg", FFmpegNotFoundError)
             self._test_bin()
 
         else:
@@ -250,23 +250,6 @@ class FFmpeg:
         if file.stat().st_size == 0:
             raise FFmpegProcessError("{} is 0-byte file".format(file))
 
-    def _signal_progress(self, value=0, finish=False):
-        # create a progress bar or send Qt signals
-
-        # a progress bar does not exist:
-        if not self._bar:
-            self._bar = ProgressBar(widgets=[Bar('#'), ' ', Percentage()], maxval=value)
-            self._bar.start()
-
-        elif finish:
-            # signal to exit the bar:
-            self._bar.finish()
-            self._bar = None
-
-        else:
-            # a progress bar exists so update it:
-            self._bar.update(value)
-
     @staticmethod
     def _start_ffmpeg_process(queue, quit_event, bin_path, args=[], store_stderr=False):
         # to be started as a thread!
@@ -308,12 +291,12 @@ class FFmpeg:
                     self._full_stderr = data[1]
             else:
                 # react to exception:
-                self._signal_progress(finish=True)
+                self._progressbar.finish()
                 log.d("raising exception {} from thread".format(data[0]))
                 raise data[0](data[1])
 
     def _quit_thread(self, exception=None):
-        self._signal_progress(finish=True)
+        self._progressbar.finish()
 
         self._quit_event.set()
 
@@ -376,15 +359,19 @@ class FFmpeg:
 
         duration = self._get_duration()
 
-        self._signal_progress(duration)
+        log.i("Analyzing {}...".format(input_file.name))
+        self._progressbar.create(duration)
 
         try:
             lufs = 0
             peak = 0
+            time_re = None
+            lufs_re = None
+            peak_re = None
 
             while True:
                 if self._thread_dead():
-                    self._signal_progress(finish=True)
+                    self._progressbar.finish()
                     break
 
                 try:
@@ -405,9 +392,9 @@ class FFmpeg:
                     if time_re:
                         time = round(float(time_re.group(1)), 1)
                         if time < duration:
-                            self._signal_progress(time)
+                            self._progressbar.update(time)
                         else:
-                            self._signal_progress(duration)
+                            self._progressbar.update(duration)
 
                     if lufs_re:
                         lufs = round(float(lufs_re.group(1)), 1)
@@ -427,12 +414,13 @@ class FFmpeg:
 
         duration = self._get_duration()
 
-        self._signal_progress(duration)
+        self._progressbar.create(duration)
 
         try:
+            time_re = None
             while True:
                 if self._thread_dead():
-                    self._signal_progress(finish=True)
+                    self._progressbar.finish()
                     break
 
                 try:
@@ -460,9 +448,9 @@ class FFmpeg:
                         time = hh * 60 * 60 + mm * 60 + ss
 
                         if time < duration:
-                            self._signal_progress(time)
+                            self._progressbar.update(time)
                         else:
-                            self._signal_progress(duration)
+                            self._progressbar.update(duration)
 
                     if "Error" in data:
                         self._quit_thread(FFmpegProcessError(data))
