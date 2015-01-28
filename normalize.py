@@ -1,5 +1,26 @@
-#!python3
+#! python3
 # -*- coding: utf-8 -*-
+
+"""
+Transcoder and EBU R128 Normalizer
+
+This app transcodes single FLAC files or recusively a folder containing FLAC files while
+also normlizing all files according to EBU R128 standard.
+
+By default it normalizes to -16dB however other options are available.
+
+FLAC files can be transcoded to AAC or ALAC through Qaac* or MP3 through LAME.
+A single FLAC file can also be transcoded to AC3 through just FFmpeg.
+
+In a folder next to the script or somewhere in your PATH should be:
+ - ffmpeg.exe
+ - qaac.exe (*requires iTunes or Apple Support Tools or a portable installation)
+ - lame.exe
+"""
+
+__author__ = "Oton Mahnič"
+__copyright__ = "2015 Oton Mahnič"
+__version__ = "1.5"
 
 # library imports:
 import sys
@@ -18,7 +39,7 @@ from database import *
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="EBU R128 Loudness Normalizer",
+    parser = argparse.ArgumentParser(description="EBU R128 Loudness Normalizer v{}".format(__version__),
                                      formatter_class=argparse.RawTextHelpFormatter)
 
     parser.add_argument("-v", action="store_true", dest="verbose",
