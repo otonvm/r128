@@ -12,8 +12,8 @@ class Target(object):
         self.version = "1.0"
 
         self.company_name = "otonvm"
-        self.copyright = "Copyright otonvm © 2013"
-        self.legal_copyright = "Copyright otonvm © 2013"
+        self.copyright = "Copyright otonvm © 2015"
+        self.legal_copyright = "Copyright otonvm © 2015"
         # self.legal_trademark = ""
         self.product_version = "1.0.0.0"
         self.product_name = "normalize"
@@ -154,7 +154,6 @@ setup(name="name",
       # py2exe options
       zipfile=None,
       options={"py2exe": py2exe_options},
-      data_files=[(r'qaac', glob.glob(r'qaac\*.*')),
-                  (r'ffmpeg', glob.glob(r'ffmpeg\*.*'))]
+      data_files=[(r'tools', glob.glob(r"tools\*\*.*"))]
       )
 

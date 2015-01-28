@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__all__ = ["Qaac", "QaacNotFoundError", "QaacProcessError", "QaacTestFailedError"]
+__all__ = ["LAME", "LAMENotFoundError", "LAMEProcessError", "LAMETestFailedError"]
 
 from subprocess import Popen, PIPE, TimeoutExpired
 from functools import partial
@@ -24,51 +24,51 @@ log = logger.Logger(__name__)
 if conf.log_level:
     log.level = conf.log_level
 else:
-    log.level = "DEBUG"
+    log.level = "ERROR"
 
 from progressbar import ProgressBar, Percentage, Bar
 
 
-class QaacException(Exception):
+class LAMEException(Exception):
     pass
 
 
-class QaacNotFoundError(QaacException):
+class LAMENotFoundError(LAMEException):
     pass
 
 
-class QaacProcessError(QaacException):
+class LAMEProcessError(LAMEException):
     pass
 
 
-class QaacTestFailedError(QaacException):
+class LAMETestFailedError(LAMEException):
     pass
 
 
-class QaacProcess:
-    def __init__(self, ff_path, qaac_path, ff_args=[], qaac_args=[], test=False, store_stderr=False):
+class LAMEProcess:
+    def __init__(self, ff_path, lame_path, ff_args=[], lame_args=[], test=False, store_stderr=False):
         if ff_args and not isinstance(ff_args, list):
             raise ValueError("you must provide a list for args")
 
-        if qaac_args and not isinstance(qaac_args, list):
+        if lame_args and not isinstance(lame_args, list):
             raise ValueError("you must provide a list for args")
 
         self._ff_path = ff_path
-        self._qaac_path = qaac_path
+        self._lame_path = lame_path
         self._ff_args = ff_args
-        self._qaac_args = qaac_args
+        self._lame_args = lame_args
         self._test = test
         self._keep_stderr = store_stderr
 
         self._ff_cmd = []
-        self._qaac_cmd = []
+        self._lame_cmd = []
         self._ff_proc = None
-        self._qaac_proc = None
+        self._lame_proc = None
         self._ff_returncode = None
-        self._qaac_returncode = None
-        self._interrupted = False
+        self._lame_returncode = None
         self._ff_stderr = deque()
-        self._qaac_stderr = None
+        self._lame_stderr = None
+        self._interrupted = False
 
     @property
     def ff_args(self):
@@ -80,46 +80,46 @@ class QaacProcess:
             raise ValueError("you must provide a list for args")
 
     @property
-    def qaac_args(self):
-        return self._qaac_args
+    def lame_args(self):
+        return self._lame_args
 
-    @qaac_args.setter
-    def qaac_args(self, value):
+    @lame_args.setter
+    def lame_args(self, value):
         if not isinstance(value, list):
             raise ValueError("you must provide a list for args")
 
-        self._qaac_args = value
+        self._lame_args = value
 
     def _run(self):
         try:
             if self._test:
-                log.d("starting qaac test subprocess")
-                self._qaac_proc = Popen([self._qaac_path, "--check"], stderr=PIPE, bufsize=0)
+                log.d("starting lame test subprocess")
+                self._lame_proc = Popen([self._lame_path], stderr=PIPE, bufsize=0)
             else:
                 log.d("starting ffmpeg subprocess: {}".format(self._ff_cmd))
-                log.d("starting qaac subprocess: {}".format(self._qaac_cmd))
+                log.d("starting lame subprocess: {}".format(self._lame_cmd))
                 self._ff_proc = Popen(self._ff_cmd, stderr=PIPE, stdout=PIPE, bufsize=0)
-                self._qaac_proc = Popen(self._qaac_cmd, stdin=self._ff_proc.stdout, stderr=PIPE, bufsize=0)
+                self._lame_proc = Popen(self._lame_cmd, stdin=self._ff_proc.stdout, stderr=PIPE, bufsize=0)
 
         except FileNotFoundError as err:
-            raise QaacNotFoundError(err) from None
+            raise LAMENotFoundError(err.strerror) from None
         except OSError as err:
-            raise QaacProcessError(err) from None
+            raise LAMEProcessError(err.strerror) from None
 
     def test(self):
-        # runs qaac without arguments
+        # runs lame without arguments
         # returns a tuple (returncode, stderr)
         self._test = True
         self._run()
-        return self._qaac_proc.communicate()[1].decode("utf-8"), self._qaac_proc.returncode
+        return self._lame_proc.communicate()[1].decode("utf-8"), self._lame_proc.returncode
 
     def __enter__(self):
         log.d("__enter__")
         self._ff_cmd.append(self._ff_path)
         self._ff_cmd.extend(self._ff_args)
 
-        self._qaac_cmd.append(self._qaac_path)
-        self._qaac_cmd.extend(self._qaac_args)
+        self._lame_cmd.append(self._lame_path)
+        self._lame_cmd.extend(self._lame_args)
 
         self._run()
         return self
@@ -136,14 +136,14 @@ class QaacProcess:
                 log.d("killing ffmpeg process")
                 self._ff_proc.kill()
 
-        if self._qaac_proc.returncode is None:
+        if self._lame_proc.returncode is None:
             try:
-                log.d("terminating qaac process")
-                self._qaac_proc.terminate()
-                self._qaac_proc.communicate(timeout=5)
+                log.d("terminating lame process")
+                self._lame_proc.terminate()
+                self._lame_proc.communicate(timeout=5)
             except TimeoutExpired:
-                log.d("killing qaac process")
-                self._qaac_proc.kill()
+                log.d("killing lame process")
+                self._lame_proc.kill()
 
         if self._interrupted:
             raise KeyboardInterrupt
@@ -159,22 +159,22 @@ class QaacProcess:
 
     def _stop_iteration(self):
         self._ff_returncode = self._ff_proc.poll()
-        self._qaac_returncode = self._qaac_proc.poll()
+        self._lame_returncode = self._lame_proc.poll()
 
         # give qaac a chance to terminate cleanly:
         if self._keep_stderr:
             # and get stderr:
-            self._qaac_stderr = self._qaac_proc.communicate(timeout=5)[1]
-        self._qaac_proc.communicate(timeout=5)
+            self._lame_stderr = self._lame_proc.communicate(timeout=5)[1]
+        self._lame_proc.communicate(timeout=5)
         raise StopIteration
 
     def __next__(self):
         buffer = deque()
         for err_char in iter(partial(self._ff_proc.stderr.read, 1), b''):
             try:
-                if self._qaac_proc.poll() is not None:
+                if self._lame_proc.poll() is not None:
                     # caught when exiting generator:
-                    raise QaacProcessError("unexpected termination")
+                    raise LAMEProcessError("unexpected termination")
                     # noinspection PyUnreachableCode
                     raise StopIteration
 
@@ -204,26 +204,29 @@ class QaacProcess:
         return self._ff_returncode
 
     @property
-    def qaac_returncode(self):
-        return self._qaac_returncode
+    def lame_returncode(self):
+        return self._lame_returncode
 
     @property
     def ff_stderr(self):
         return self._ff_stderr
 
     @property
-    def qaac_stderr(self):
-        return self._qaac_stderr.decode("utf-8")
+    def lame_stderr(self):
+        try:
+            return self._lame_stderr.decode("utf-8")
+        except AttributeError:
+            return None
 
 
-class Qaac:
-    def __init__(self, ff_path=None, qaac_path=None, debug=False):
+class LAME:
+    def __init__(self, ff_path=None, lame_path=None, debug=False):
         self._ff_path = ff_path
-        self._qaac_path = qaac_path
+        self._lame_path = lame_path
         self._debug = debug
 
         self._ff_args = []
-        self._qaac_args = []
+        self._lame_args = []
         self._bar = None
         self._duration = 0
         self._ff_stderr = []
@@ -235,25 +238,25 @@ class Qaac:
             else:
                 self._ff_path = FFmpeg().path
         except FFmpegTestFailedError as exc:
-            raise QaacTestFailedError(exc)
+            raise LAMETestFailedError(exc)
 
-        if not self._qaac_path:
+        if not self._lame_path:
             self._locate_bin()
             self._test_bin()
 
         else:
             log.d("testing provided path")
 
-            if not pathlib.Path.is_file(self._qaac_path):
-                raise ValueError("Given path for Qaac does not exist")
+            if not pathlib.Path.is_file(self._lame_path):
+                raise ValueError("Given path for LAME does not exist")
 
-            if not os.access(self._qaac_path, os.X_OK):
-                raise ValueError("Given path for Qaac must be executable")
+            if not os.access(self._lame_path, os.X_OK):
+                raise ValueError("Given path for LAME must be executable")
 
             self._test_bin()
 
     def _locate_bin(self):
-        log.d("trying to find qaac binary")
+        log.d("trying to find lame binary")
 
         # script folder should be among the first to be searched:
         search_paths = sys.path
@@ -273,28 +276,28 @@ class Qaac:
                 continue
 
             for exe in executables:
-                if "qaac" in exe:
-                    self._qaac_path = exe
-                    log.d("found qaac bin: {}".format(self._qaac_path))
+                if "lame" in exe:
+                    self._lame_path = exe
+                    log.d("found lame bin: {}".format(self._lame_path))
                     break
 
             # ffmpeg has been found, exit needless loops:
-            if self._qaac_path:
+            if self._lame_path:
                 break
         else:
-            raise QaacNotFoundError("Could not locate qaac binary anywhere in PATH.")
+            raise LAMENotFoundError("Could not locate lame binary anywhere in PATH.")
 
     def _test_bin(self):
-        log.d("testing qaac binary")
+        log.d("testing lame binary")
 
-        qaac = QaacProcess(ff_path=None, qaac_path=self._qaac_path, test=True, store_stderr=True).test()
+        lame = LAMEProcess(ff_path=None, lame_path=self._lame_path, test=True, store_stderr=True).test()
 
-        if qaac[1] == 0 and "qaac 2.43, CoreAudioToolbox 7.9.9.3" in qaac[0]:
-            log.d("testing qaac binary succeded")
+        if lame[1] == 1 and "LAME 64bits version 3.99.5" in lame[0]:
+            log.d("testing lame binary succeded")
             return
         else:
-            log.d("testing qaac binary failed")
-            raise QaacTestFailedError("did not run or test correctly")
+            log.d("testing lame binary failed")
+            raise LAMETestFailedError("did not run or test correctly")
 
     @property
     def ffmpeg_stderr(self):
@@ -304,10 +307,10 @@ class Qaac:
             return None
 
     @property
-    def qaac_stderr(self):
+    def lame_stderr(self):
         try:
-            return self._qaac_stderr
-        except TypeError:
+            return self._lame_stderr
+        except (TypeError, AttributeError):
             return None
 
     @staticmethod
@@ -318,7 +321,7 @@ class Qaac:
             raise FileNotFoundError("{} not found or not a file.".format(file))
 
         if file.stat().st_size == 0:
-            raise QaacProcessError("{} is 0-byte file".format(file))
+            raise LAMEProcessError("{} is 0-byte file".format(file))
 
     def _signal_progress(self, value=0, finish=False):
         # create a progress bar or send Qt signals
@@ -339,19 +342,19 @@ class Qaac:
             self._bar.update(value)
 
     @staticmethod
-    def _start_qaac_process(queue, quit_event, ff_path, qaac_path, ff_args=[], qaac_args=[], store_stderr=False):
+    def _start_lame_process(queue, quit_event, ff_path, lame_path, ff_args=[], lame_args=[], store_stderr=False):
         # to be started as a thread!
         # noinspection PyBroadException
         try:
-            with QaacProcess(ff_path, qaac_path, ff_args, qaac_args, store_stderr=store_stderr) as qaac:
-                for line in qaac:
+            with LAMEProcess(ff_path, lame_path, ff_args, lame_args, store_stderr=store_stderr) as lame:
+                for line in lame:
                     if line:
                         queue.put(line)
 
                     if quit_event.is_set():
                         break
                 if store_stderr:
-                    queue.put(("stderr", qaac.ff_stderr, qaac.qaac_stderr))
+                    queue.put(("stderr", lame.ff_stderr, lame.lame_stderr))
         # catching all exceptions from the thread:
         except Exception:
             exc = sys.exc_info()
@@ -362,9 +365,9 @@ class Qaac:
         self._quit_event = Event()
 
         # start thread that reads from stderr:
-        self._thread = Thread(target=self._start_qaac_process, args=(self._queue, self._quit_event,
-                                                                     self._ff_path, self._qaac_path,
-                                                                     self._ff_args, self._qaac_args,
+        self._thread = Thread(target=self._start_lame_process, args=(self._queue, self._quit_event,
+                                                                     self._ff_path, self._lame_path,
+                                                                     self._ff_args, self._lame_args,
                                                                      self._debug))
         self._thread.daemon = True
         self._thread.start()
@@ -380,7 +383,7 @@ class Qaac:
             if data[0] == "stderr":
                 if self._debug:
                     self._ff_stderr = data[1]
-                    self._qaac_stderr = data[2]
+                    self._lame_stderr = data[2]
             else:
                 # react to exception:
                 self._signal_progress(finish=True)
@@ -485,14 +488,14 @@ class Qaac:
                             self._signal_progress(self._duration)
 
                     if "Error" in data:
-                        self._quit_thread(QaacProcessError(data))
+                        self._quit_thread(LAMEProcessError(data))
 
             self._quit_thread()
 
         except KeyboardInterrupt as exc:
             self._quit_thread(exc)
 
-    def convert_to_aac(self, input_file, output_file, volume=0):
+    def convert_to_mp3(self, input_file, output_file, volume=0):
         self._check_file(input_file)
 
         self._ff_args = ["-hide_banner",
@@ -501,29 +504,11 @@ class Qaac:
                          "volume={}dB".format(volume),
                          "-f", "wav", "-y", "-"]
 
-        self._qaac_args = ["--tvbr", "127", "--quality", "2",
-                           "--native-resampler=bats,127",
-                           "-", "-o", str(output_file)]
+        self._lame_args = ["-b", "64", "-V", "0", "-q", "0",
+                           "-p", "--noreplaygain",
+                           "--add-id3v2", "--pad-id3v2",
+                           "-", str(output_file)]
 
         self._single_file_conversion()
 
         self._check_file(output_file)
-
-    def convert_to_alac(self, input_file, output_file, volume=0):
-        self._check_file(input_file)
-
-        self._ff_args = ["-hide_banner",
-                         "-i", str(input_file),
-                         "-vn", "-filter:a",
-                         "volume={}dB".format(volume),
-                         "-f", "wav", "-y", "-"]
-
-        self._qaac_args = ["--alac",
-                           "--native-resampler=bats,127",
-                           "--bits-per-sample", "24",
-                           "-", "-o", str(output_file)]
-
-        self._single_file_conversion()
-
-        self._check_file(output_file)
-

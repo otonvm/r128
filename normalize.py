@@ -12,6 +12,7 @@ import config
 import readchar
 from utils import *
 from ffmpeg import *
+from lame import *
 from qaac import *
 from database import *
 
@@ -39,6 +40,11 @@ def parse_args():
     parser.add_argument("--mp3", action="store_true",
                         help="{}\n{}".format("encode MP3 format",
                                              " - disables AAC or ALAC formats that can be enabled manually"))
+
+    parser.add_argument("--ac3", action="store_true",
+                        help="{}\n{}\n{}".format("encode ac3 format",
+                                                 " - disables other encoding",
+                                                 " - is only available when converting a single file"))
 
     parser.add_argument("--quality", default=9, type=int, metavar="q",
                         help="{}\n{}\n{}".format("set quality of MP3 or AAC encoding",
@@ -81,6 +87,7 @@ def init_config(args):
     conf.aac = args.aac
     conf.alac = args.alac
     conf.mp3 = args.mp3
+    conf.ac3 = args.ac3
     conf.quality = args.quality
     conf.volume = args.volume
 
@@ -94,6 +101,10 @@ def init_config(args):
         conf.aac = True
         conf.alac = True
         log.d("defaulting to itunes output")
+
+    if conf.ac3:
+        conf.itunes = conf.aac = conf.alac = conf.mp3 = False
+        log.d("encoding to ac3")
 
     conf.dry_run = args.dry_run
     conf.no_db = args.no_db
@@ -123,6 +134,18 @@ def init_ffmpeg():
 
     except FFmpegMissingLib as err:
         log_and_exit("FFmpeg at {} doesn't have the required library: {}".format(conf.ffmpeg.path, err), 1)
+
+
+def init_lame():
+    # qaac is not required so it can fail detection:
+    try:
+        conf.lame = LAME(debug=conf.debug)
+
+    except LAMENotFoundError:
+        log.w("LAME binary could not be found.\nMake sure it's in your path.")
+
+    except (LAMETestFailedError, LAMEProcessError):
+        log.w("Error while trying to run LAME.")
 
 
 def init_qaac():
@@ -160,15 +183,25 @@ def init_db(conversion_list):
 
 def main(args):
     init_config(args)
+
     init_ffmpeg()
-    init_qaac()
+
+    if conf.itunes or conf.aac or conf.alac:
+        init_qaac()
+
+    if conf.mp3:
+        init_lame()
 
     # disable aac and alac encoding if qaac is not present:
     if not conf.qaac:
         conf.aac = False
         conf.alac = False
 
-    if not conf.aac and not conf.alac and not conf.mp3:
+    # disable mp3 encoding if lame is not present:
+    if not conf.lame:
+        conf.mp3 = False
+
+    if not conf.aac and not conf.alac and not conf.mp3 and not conf.ac3:
         log_and_exit("No available encoder has been selected.")
 
     # create a list of all input flac files:
@@ -181,6 +214,9 @@ def main(args):
         conf.input_list.append(conf.input)
 
     else:
+        if conf.ac3:
+            log_and_exit("Only files are supported for ac3 encoding!", 1)
+
         conf.input_list = [file for file in conf.input.glob("*.flac")]
 
         if len(conf.input_list) == 0:
@@ -188,9 +224,12 @@ def main(args):
 
         log.i("Processing {} files...".format(len(conf.input_list)))
 
-    # loop over all input files and create (input, output) combinations while filtering out existing files:
+    # loop over all input files and create (input, output) combinations
+    # while filtering out existing files:
     for file in conf.input_list:
-        if conf.input_is_file:  # create a list that contains only one file
+        if conf.input_is_file:
+            # create a list that contains only one file
+            # this is to prevent the creation of a new folder
             aac_output_filename = file.parent / "{}_aac.m4a".format(file.stem)
             if not aac_output_filename.exists():
                 conf.aac_conversion_list.append((file, aac_output_filename))
@@ -203,11 +242,17 @@ def main(args):
             else:
                 log.i("{} alredy exists. Skipping...".format(alac_output_filename))
 
-            mp3_output_filename = file.parent / "{}_mp3.m4a".format(file.stem)
+            mp3_output_filename = file.parent / "{}.mp3".format(file.stem)
             if not mp3_output_filename.exists():
                 conf.mp3_conversion_list.append((file, mp3_output_filename))
             else:
                 log.i("{} alredy exists. Skipping...".format(mp3_output_filename))
+
+            ac3_output_filename = file.parent / "{}.ac3".format(file.stem)
+            if not ac3_output_filename.exists():
+                conf.ac3_conversion_list.append((file, ac3_output_filename))
+            else:
+                log.i("{} alredy exists. Skipping...".format(ac3_output_filename))
 
         else:
             aac_output_filename = conf.input / "aac" / "{}.m4a".format(file.stem)
@@ -249,11 +294,12 @@ def main(args):
             for input_file, output_file in conf.aac_conversion_list:
                 if not conf.dry_run:
                     volume = conf.db.get_entry(conf.db.md5sum(input_file))
+
                     try:
                         conf.qaac.convert_to_aac(input_file, output_file, volume=volume)
                     except QaacProcessError as err:
                         log_and_exit("Qaac error: {}".format(err), 1)
-                    log.d("full stderr: {}".format(conf.qaac.full_stderr))
+                    log.d("full qaac stderr: {}".format(conf.qaac.qaac_stderr))
                 else:
                     log.i("Would convert {} to {}.".format(input_file, output_file))
         else:
@@ -272,11 +318,12 @@ def main(args):
             for input_file, output_file in conf.alac_conversion_list:
                 if not conf.dry_run:
                     volume = conf.db.get_entry(conf.db.md5sum(input_file))
+
                     try:
                         conf.qaac.convert_to_alac(input_file, output_file, volume=volume)
                     except QaacProcessError as err:
                         log_and_exit("Qaac error: {}".format(err), 1)
-                    log.d("full stderr: {}".format(conf.qaac.full_stderr))
+                    log.d("full qaac stderr: {}".format(conf.qaac.qaac_stderr))
                 else:
                     log.i("Would convert {} to {}.".format(input_file, output_file))
         else:
@@ -295,7 +342,28 @@ def main(args):
             for input_file, output_file in conf.mp3_conversion_list:
                 if not conf.dry_run:
                     volume = conf.db.get_entry(conf.db.md5sum(input_file))
-                    conf.ffmpeg.convert_to_mp3(input_file, output_file, volume=volume)
+                    conf.lame.convert_to_mp3(input_file, output_file, volume=volume)
+                    log.d("full lame stderr: {}".format(conf.lame.lame_stderr))
+                else:
+                    log.i("Would convert {} to {}.".format(input_file, output_file))
+        else:
+            print_stderr("Nothing to do!")
+
+    if conf.ac3:
+        print_stderr("Converting to ac3...")
+        if len(conf.ac3_conversion_list) > 0:
+            init_db(conf.ac3_conversion_list)
+
+            # for future:
+            if not conf.input_is_file:
+                if not pathlib.Path(conf.input / "ac3").is_dir():
+                    if not conf.dry_run:
+                        pathlib.Path.mkdir(conf.input / "ac3")
+
+            for input_file, output_file in conf.ac3_conversion_list:
+                if not conf.dry_run:
+                    volume = conf.db.get_entry(conf.db.md5sum(input_file))
+                    conf.ffmpeg.convert_to_ac3(input_file, output_file, volume=volume)
                     log.d("full stderr: {}".format(conf.ffmpeg.full_stderr))
                 else:
                     log.i("Would convert {} to {}.".format(input_file, output_file))

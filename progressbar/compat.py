@@ -29,7 +29,7 @@ except NameError:
     def next(iter):
         try:
             # Try new style iterators
-            return iter.__next__()
+            return iter.__next__
         except AttributeError:
             # Fallback in case of a "native" iterator
             return iter.next()
