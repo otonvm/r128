@@ -15,7 +15,7 @@ class Target(object):
         self.copyright = "Copyright otonvm © 2015"
         self.legal_copyright = "Copyright otonvm © 2015"
         # self.legal_trademark = ""
-        self.product_version = "1.0.0.0"
+        self.product_version = "1.5.0.0"
         self.product_name = "normalize"
 
         # self.private_build = "foo"
@@ -80,7 +80,7 @@ normalize = Target(
     # dest_base = "normalize",
 
     # Icon resources:[(resource_id, path to .ico file), ...]
-    # icon_resources=[(1, r"normalize.ico")]
+    icon_resources=[(0, r"logo.ico")],
 
     other_resources = [(RT_MANIFEST, 1, (manifest_template % dict(prog="normalize", level="asInvoker")).encode("utf-8")),
     # for bitmap resources, the first 14 bytes must be skipped when reading the file:

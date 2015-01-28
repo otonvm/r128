@@ -27,7 +27,7 @@ else:
     log.level = "ERROR"
 
 from progressbar import ProgressBar, Percentage, Bar
-
+from utils import locate_bin
 
 class LAMEException(Exception):
     pass
@@ -241,7 +241,7 @@ class LAME:
             raise LAMETestFailedError(exc)
 
         if not self._lame_path:
-            self._locate_bin()
+            locate_bin("lame", LAMENotFoundError)
             self._test_bin()
 
         else:
@@ -254,38 +254,6 @@ class LAME:
                 raise ValueError("Given path for LAME must be executable")
 
             self._test_bin()
-
-    def _locate_bin(self):
-        log.d("trying to find lame binary")
-
-        # script folder should be among the first to be searched:
-        search_paths = sys.path
-
-        # the add the system PATH:
-        search_paths.extend(os.environ["PATH"].split(os.pathsep))
-
-        for path in search_paths:
-            path = pathlib.Path(path)
-            log.d("searching inside {}".format(path))
-
-            try:
-                # create a list of all exe files in the folder beeing searched:
-                executables = [str(exe) for exe in path.glob("**/*.exe")
-                               if exe.is_file() and os.access(str(exe), os.X_OK)]
-            except (KeyError, PermissionError):
-                continue
-
-            for exe in executables:
-                if "lame" in exe:
-                    self._lame_path = exe
-                    log.d("found lame bin: {}".format(self._lame_path))
-                    break
-
-            # ffmpeg has been found, exit needless loops:
-            if self._lame_path:
-                break
-        else:
-            raise LAMENotFoundError("Could not locate lame binary anywhere in PATH.")
 
     def _test_bin(self):
         log.d("testing lame binary")
@@ -509,6 +477,7 @@ class LAME:
                            "--add-id3v2", "--pad-id3v2",
                            "-", str(output_file)]
 
+        log.i("Converting {} to {}...".format(input_file.name, output_file.name))
         self._single_file_conversion()
 
         self._check_file(output_file)

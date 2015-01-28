@@ -23,7 +23,7 @@ if conf.log_level:
 else:
     log.level = "DEBUG"
 
-from utils import print_stderr
+from utils import print_stderr, locate_bin
 
 from progressbar import ProgressBar, Percentage, Bar
 
@@ -174,7 +174,7 @@ class FFmpeg:
         self._full_stderr = []
 
         if not self.ffmpeg_bin:
-            self._locate_bin()
+            locate_bin("ffmpeg", FFmpegNotFoundError)
             self._test_bin()
 
         else:
@@ -187,38 +187,6 @@ class FFmpeg:
                 raise ValueError("Given path for FFmpeg must be executable")
 
             self._test_bin()
-
-    def _locate_bin(self):
-        log.d("trying to find ffmpeg binary")
-
-        # script folder should be among the first to be searched:
-        search_paths = sys.path
-
-        # the add the system PATH:
-        search_paths.extend(os.environ["PATH"].split(os.pathsep))
-
-        for path in search_paths:
-            path = pathlib.Path(path)
-            log.d("searching inside {}".format(path))
-
-            try:
-                # create a list of all exe files in the folder beeing searched:
-                executables = [str(exe) for exe in path.glob("**/*.exe")
-                               if exe.is_file() and os.access(str(exe), os.X_OK)]
-            except (KeyError, PermissionError):
-                continue
-
-            for exe in executables:
-                if "ffmpeg" in exe:
-                    self.ffmpeg_bin = exe
-                    log.d("found ffmpeg bin: {}".format(self.ffmpeg_bin))
-                    break
-
-            # ffmpeg has been found, exit needless loops:
-            if self.ffmpeg_bin:
-                break
-        else:
-            raise FFmpegNotFoundError("Could not locate ffmpeg binary anywhere in PATH.")
 
     def _test_bin(self):
         log.d("testing ffmpeg binary")
@@ -514,6 +482,7 @@ class FFmpeg:
                 "-filter:a", "volume={}dB".format(volume),
                 "-f", "mp3", "-y", str(output_file)]
 
+        log.i("Converting {} to {}...".format(input_file.name, output_file.name))
         self._single_file_conversion(args)
 
         self._check_file(output_file)
@@ -529,6 +498,7 @@ class FFmpeg:
                 "aresample=48000:out_sample_fmt=fltp:resampler=soxr:precision=28,volume={}dB".format(volume),
                 "-f", "ac3", "-y", str(output_file)]
 
+        log.i("Converting {} to {}...".format(input_file.name, output_file.name))
         self._single_file_conversion(args)
 
         self._check_file(output_file)
@@ -544,25 +514,7 @@ class FFmpeg:
                 "volume={}dB".format(volume),
                 "-f", "flac", "-y", str(output_file)]
 
+        log.i("Converting {} to {}...".format(input_file.name, output_file.name))
         self._single_file_conversion(args)
 
         self._check_file(output_file)
-
-if __name__ == "__main__":
-    stanovanje = True
-
-    ffmpeg = r"C:\Users\Oton\Dropbox\Python\r128\tools\ffmpeg\ffmpeg.exe"
-    lame = r"C:\Users\Oton\Dropbox\Python\r128\tools\lame\lame.exe"
-    flac = r"C:\Users\Oton\Downloads\BACKUP\Sido - Maske (2004) (Flac)\04 - Mein Block.flac"
-    if stanovanje:
-        ffmpeg = r"D:\Dropbox\Python\r128\tools\ffmpeg\ffmpeg.exe"
-        lame = r"D:\Dropbox\Python\r128\tools\lame\lame.exe"
-        flac = r"D:\Downloads\FLAC\2009 - In Search Of Sunrise 6 - Ibiza (Unmixed Tracks) [SBCD 10] WEB\03. Andy Duguid feat. Leah - Don't Belong.flac"
-
-    ff = FFmpeg(debug=True)
-    try:
-        ff.convert_to_ac3(flac, "test.mp3")
-        print(ff.full_stderr)
-    except (KeyboardInterrupt, FFmpegProcessError) as err:
-        print(err)
-    print(ff.full_stderr)
