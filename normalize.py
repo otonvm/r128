@@ -23,10 +23,7 @@ __copyright__ = "2015 Oton Mahnič"
 __version__ = "1.5"
 
 # library imports:
-import os
-import sys
 import argparse
-import pathlib
 
 # local imports:
 import readchar
