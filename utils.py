@@ -20,6 +20,7 @@ else:
 
 from progressbar import ProgressBar, Percentage, Bar
 
+
 def print_stderr(msg):
     print(colorama.Fore.GREEN + str(msg) + colorama.Style.RESET_ALL, file=stream, flush=True)
 
@@ -90,9 +91,10 @@ class HashProgressBar:
         self._maxval = 0
 
     def create(self, value):
-        self._maxval = value
-        self._bar = ProgressBar(widgets=[Bar('#'), ' ', Percentage()], maxval=self._maxval)
-        self._bar.start()
+        if conf.verbose:
+            self._maxval = value
+            self._bar = ProgressBar(widgets=[Bar('#'), ' ', Percentage()], maxval=self._maxval)
+            self._bar.start()
 
     def update(self, value):
         try:
