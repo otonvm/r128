@@ -29,8 +29,6 @@ import argparse
 import pathlib
 
 # local imports:
-import logger
-import config
 import readchar
 from utils import *
 from ffmpeg import *
@@ -73,7 +71,7 @@ def parse_args():
                                                  " - from 0 to 9 where 0 = lowest, 9 = highest [default])",
                                                  "(not implemented)"))
 
-    parser.add_argument("--volume", default=-16, type=int, metavar="vol", choices=[-23, -19, -16],
+    parser.add_argument("--volume", default=-16, type=int, metavar="vol", choices=conf.volume_choices,
                         help="{}\n{}\n{}".format("set value to which to normalize",
                                                  " - -23 is by standard",
                                                  " - -19 or -16 [default] are slightly louder"))
@@ -131,7 +129,7 @@ def init_config(args):
     conf.dry_run = args.dry_run
     conf.no_db = args.no_db
 
-    conf.verbose = args.verbose
+    conf.verbose = args.verbose or args.debug
     conf.debug = args.debug
 
     log.d("parsed commandline arguments: {}".format(conf))
@@ -196,7 +194,7 @@ def init_db(conversion_list):
         input_file_md5 = conf.db.md5sum(input_file)
 
         if not conf.db.get_entry(input_file_md5):
-            log.d("analyzing volume for file: {}".format(input_file.name))
+            log.d("Analyzing volume of {}".format(input_file.name))
             lufs, _ = conf.ffmpeg.analyze_volume(input_file)
 
             conf.db.set_entry(input_file_md5, calc_volume(lufs))
@@ -433,8 +431,6 @@ def main(args):
 
 
 if __name__ == "__main__":
-    print(getattr(sys, "frozen"))
-    print(pathlib.Path(sys.executable).parent)
     arguments = parse_args()
 
     # initialize the config class
