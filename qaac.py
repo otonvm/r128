@@ -227,6 +227,8 @@ class Qaac:
         self._duration = 0
         self._ff_stderr = []
         self._qaac_stderr = None
+        self._qaac_supported_ver = "2.45"
+        self._cat_supported_ver = "7.9.9.4"
 
         self._progressbar = HashProgressBar()
 
@@ -256,11 +258,25 @@ class Qaac:
     def _test_bin(self):
         log.d("testing qaac binary")
 
-        qaac = QaacProcess(ff_path=None, qaac_path=self._qaac_path, test=True, store_stderr=True).test()
+        qaac = QaacProcess(ff_path=None, qaac_path=self._qaac_path, test=True, store_stderr=True)
+        qaac = qaac.test()
 
-        if qaac[1] == 0 and "qaac 2.43, CoreAudioToolbox 7.9.9.3" in qaac[0]:
-            log.d("testing qaac binary succeded")
-            return
+        if qaac[1] == 0:
+            ver_re = re.search(r"qaac\s(.*),\sCoreAudioToolbox\s(.*)", qaac[0])
+
+            if ver_re:
+                ver_qaac = ver_re.group(1)
+                ver_cat = ver_re.group(2)
+                log.d("got qaac ver. {} and coreaudio ver. {}".format(ver_qaac, ver_cat))
+
+            if ver_qaac != self._qaac_supported_ver or ver_cat != self._cat_supported_ver:
+                log.w("Only Qaac version {} and "
+                      "CoreAudioToolbox version {} "
+                      "are supported.".format(self._qaac_supported_ver, self._cat_supported_ver))
+                log.w("If there are errors try those versions.")
+            else:
+                log.d("testing qaac binary succeded")
+
         else:
             log.d("testing qaac binary failed")
             raise QaacTestFailedError("did not run or test correctly")
