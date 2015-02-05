@@ -2,6 +2,8 @@
 
 __all__ = ["Config"]
 
+import pathlib
+
 
 class Singleton(type):
     def __init__(cls, *args, **kwargs):
@@ -23,7 +25,7 @@ class Config(metaclass=Singleton):
     Initially all variables are initialized to None.
     """
     log_level = None
-    input = None
+    input = pathlib.Path
     input_str = ""
     input_is_file = False
     database_path = None
@@ -35,6 +37,7 @@ class Config(metaclass=Singleton):
     ac3 = False
     quality = 0
     volume = 0
+    volume_choices = [-16, -19, -23]
     dry_run = False
     no_db = False
     verbose = False
