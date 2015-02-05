@@ -5,10 +5,13 @@ __all__ = ["Database", "DatabaseError"]
 from functools import partial
 import hashlib
 import json
+import pathlib
 
 import logger
 log = logger.Logger(__name__)
 log.level = "DEBUG"
+
+from utils import HashProgressBar
 
 
 class DatabaseError(Exception):
@@ -100,10 +103,23 @@ class Database:
 
     @staticmethod
     def md5sum(filename):
+        file = pathlib.Path(filename)
+        filesize = file.stat().st_size
+
+        log.i("Calculating MD5 for file {}...".format(file.name))
+        bar = HashProgressBar()
+        bar.create(filesize)
+
+        read_bytes = 0
+        chunk = 128
+        md5 = hashlib.md5()
         with open(str(filename), mode='rb') as f:
-            md5 = hashlib.md5()
-            for buf in iter(partial(f.read, 128), b''):
+            for buf in iter(partial(f.read, chunk), b''):
                 md5.update(buf)
+                read_bytes += chunk
+                bar.update(read_bytes)
+            else:
+                bar.finish()
         return md5.hexdigest()
 
     def __repr__(self):
